@@ -1,0 +1,155 @@
+@page "/results"
+@attribute [Authorize]
+@attribute [StreamRendering]
+@rendermode InteractiveServer
+@implements IAsyncDisposable
+@inject SleepAnalysisService AnalysisService
+@inject IJSRuntime JsRuntime
+
+<PageTitle>Results & Ranking</PageTitle>
+
+<h1>Results & Ranking</h1>
+
+<p class="text-muted">@SleepAnalysisService.ExtraIdea</p>
+
+@if (_isLoading)
+{
+    <p>Loading analysis...</p>
+}
+else
+{
+    <p><strong>Total tracked days:</strong> @_report.TotalDays</p>
+
+    <h4>Single factor ranking (risk)</h4>
+    @if (_report.SingleFactorRanking.Count == 0)
+    {
+        <p class="text-muted">No single-factor risks found yet.</p>
+    }
+    else
+    {
+        <table class="table table-sm table-striped">
+            <thead>
+                <tr>
+                    <th>Factor</th>
+                    <th>Occurrences</th>
+                    <th>Bad</th>
+                    <th>So-so</th>
+                    <th>Good</th>
+                    <th>Risk score</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var item in _report.SingleFactorRanking.Take(20))
+                {
+                    <tr>
+                        <td>@item.Key</td>
+                        <td>@item.Occurrences</td>
+                        <td>@item.BadCount</td>
+                        <td>@item.SoSoCount</td>
+                        <td>@item.GoodCount</td>
+                        <td>@item.RiskScore</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+
+    <h4>Combined factors ranking (pairs)</h4>
+    @if (_report.CombinedFactorRanking.Count == 0)
+    {
+        <p class="text-muted">No combined-factor risks found yet (at least 2 repeated days needed).</p>
+    }
+    else
+    {
+        <table class="table table-sm table-striped">
+            <thead>
+                <tr>
+                    <th>Combination</th>
+                    <th>Occurrences</th>
+                    <th>Bad</th>
+                    <th>So-so</th>
+                    <th>Good</th>
+                    <th>Risk score</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var item in _report.CombinedFactorRanking.Take(20))
+                {
+                    <tr>
+                        <td>@item.Key</td>
+                        <td>@item.Occurrences</td>
+                        <td>@item.BadCount</td>
+                        <td>@item.SoSoCount</td>
+                        <td>@item.GoodCount</td>
+                        <td>@item.RiskScore</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+
+    <h4>Excluded factors (more good than bad)</h4>
+    @if (_report.ExcludedFactors.Count == 0)
+    {
+        <p class="text-muted">No excluded factors yet.</p>
+    }
+    else
+    {
+        <ul>
+            @foreach (var item in _report.ExcludedFactors.Take(20))
+            {
+                <li>@item.Key (good: @item.GoodCount, bad: @item.BadCount, seen: @item.Occurrences)</li>
+            }
+        </ul>
+    }
+}
+
+@code {
+    private AnalysisReport _report = new([], [], [], 0);
+    private bool _isLoading = true;
+    private DotNetObjectReference<Results>? _dotNetRef;
+    private readonly string _signalRKey = $"results-{Guid.NewGuid():N}";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+        {
+            return;
+        }
+
+        _dotNetRef = DotNetObjectReference.Create(this);
+        await JsRuntime.InvokeVoidAsync("sleepFactorsRealtime.start", _signalRKey, _dotNetRef);
+    }
+
+    [JSInvokable]
+    public async Task HandleRealtimeRefresh()
+    {
+        await LoadAsync();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task LoadAsync()
+    {
+        _isLoading = true;
+        _report = await AnalysisService.BuildReportAsync();
+        _isLoading = false;
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        try
+        {
+            await JsRuntime.InvokeVoidAsync("sleepFactorsRealtime.stop", _signalRKey);
+        }
+        catch
+        {
+        }
+
+        _dotNetRef?.Dispose();
+    }
+}

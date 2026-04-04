@@ -1,0 +1,65 @@
+@page "/login"
+@rendermode InteractiveServer
+@inject SignInManager<IdentityUser> SignInManager
+@inject NavigationManager Navigation
+
+<PageTitle>Login</PageTitle>
+
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-body">
+                    <h3 class="card-title mb-4">Login</h3>
+
+                    @if (!string.IsNullOrWhiteSpace(ErrorMessage))
+                    {
+                        <div class="alert alert-danger">@ErrorMessage</div>
+                    }
+
+                    <div class="mb-3">
+                        <label class="form-label">Email</label>
+                        <InputText class="form-control" @bind-Value="Email" type="email" />
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Password</label>
+                        <InputText class="form-control" @bind-Value="Password" type="password" />
+                    </div>
+
+                    <button class="btn btn-primary w-100 mb-3" @onclick="LoginAsync">Login</button>
+
+                    <p class="text-center text-muted mb-0">
+                        No account? <a href="/register">Register here</a>
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private string? Email { get; set; }
+    private string? Password { get; set; }
+    private string? ErrorMessage { get; set; }
+
+    private async Task LoginAsync()
+    {
+        if (string.IsNullOrWhiteSpace(Email) || string.IsNullOrWhiteSpace(Password))
+        {
+            ErrorMessage = "Email and password are required.";
+            return;
+        }
+
+        var result = await SignInManager.PasswordSignInAsync(Email, Password, isPersistent: false, lockoutOnFailure: false);
+
+        if (result.Succeeded)
+        {
+            Navigation.NavigateTo("/");
+        }
+        else
+        {
+            ErrorMessage = "Invalid email or password.";
+        }
+    }
+}

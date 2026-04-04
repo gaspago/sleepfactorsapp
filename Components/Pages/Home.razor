@@ -1,0 +1,33 @@
+﻿@page "/"
+
+<PageTitle>Sleep Tracker</PageTitle>
+
+<h1>Child Sleep Factors</h1>
+
+<AuthorizeView>
+    <Authorized>
+        <p>
+            Track your child's daily factors and analyze what affects their sleep quality.
+        </p>
+
+        <ul>
+            <li>Use <strong>Add Daily Factors</strong> to save meals (pranzo, merenda, cena with ingredients), single factors (naps, conflicts, bath, incidents), and sleep quality for each day.</li>
+            <li>Use <strong>Results &amp; Ranking</strong> to view single-factor risk rankings, combined-factor pairs, and excluded factors (those tied to good sleep).</li>
+            <li>Factors associated with good sleep are automatically excluded from the risk ranking.</li>
+        </ul>
+    </Authorized>
+    <NotAuthorized>
+        <p class="lead">
+            Welcome to Sleep Factors Tracker. Please login or register to get started.
+        </p>
+
+        <div class="alert alert-info">
+            This app helps track factors that may affect your child's sleep and provides analysis to identify patterns.
+        </div>
+
+        <div>
+            <a href="/login" class="btn btn-primary me-2">Login</a>
+            <a href="/register" class="btn btn-success">Register</a>
+        </div>
+    </NotAuthorized>
+</AuthorizeView>

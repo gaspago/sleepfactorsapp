@@ -1,0 +1,193 @@
+@page "/track"
+@attribute [Authorize]
+@rendermode InteractiveServer
+@inject DailyLogService DailyLogService
+
+<PageTitle>Add Daily Factors</PageTitle>
+
+<h1>Add Daily Factors</h1>
+
+<div class="row g-3 mb-3">
+    <div class="col-md-3">
+        <label class="form-label">Day</label>
+        <InputDate class="form-control" @bind-Value="SelectedDay" />
+    </div>
+    <div class="col-md-3">
+        <label class="form-label">Sleep quality</label>
+        <InputSelect class="form-select" @bind-Value="SelectedSleepQuality">
+            <option value="@SleepQuality.Bad">Sleep bad</option>
+            <option value="@SleepQuality.SoSo">Sleep so-so</option>
+            <option value="@SleepQuality.Good">Sleep good</option>
+        </InputSelect>
+    </div>
+    <div class="col-md-6">
+        <label class="form-label">Notes</label>
+        <InputText class="form-control" @bind-Value="DailyNotes" />
+    </div>
+</div>
+
+<div class="card mb-3">
+    <div class="card-body">
+        <h5 class="card-title">Add single factor</h5>
+        <div class="row g-2">
+            <div class="col-md-3">
+                <InputSelect class="form-select" @bind-Value="NewSimpleCategory">
+                    @foreach (var category in SelectableSimpleCategories)
+                    {
+                        <option value="@category">@category</option>
+                    }
+                </InputSelect>
+            </div>
+            <div class="col-md-3">
+                <InputText class="form-control" @bind-Value="NewSimpleName" placeholder="Factor name" />
+            </div>
+            <div class="col-md-4">
+                <InputText class="form-control" @bind-Value="NewSimpleDetail" placeholder="Detail (optional)" />
+            </div>
+            <div class="col-md-2 d-grid">
+                <button class="btn btn-primary" @onclick="AddSimpleFactor">Add</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card mb-3">
+    <div class="card-body">
+        <h5 class="card-title">Add meal factor (composite)</h5>
+        <div class="row g-2">
+            <div class="col-md-3">
+                <InputSelect class="form-select" @bind-Value="NewMealType">
+                    <option>pranzo</option>
+                    <option>merenda</option>
+                    <option>cena</option>
+                    <option>other</option>
+                </InputSelect>
+            </div>
+            <div class="col-md-5">
+                <InputText class="form-control" @bind-Value="NewMealIngredients" placeholder="Ingredients comma separated" />
+            </div>
+            <div class="col-md-2">
+                <InputText class="form-control" @bind-Value="NewMealDetail" placeholder="Detail" />
+            </div>
+            <div class="col-md-2 d-grid">
+                <button class="btn btn-primary" @onclick="AddMealFactor">Add meal</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card mb-3">
+    <div class="card-body">
+        <h5 class="card-title">Current factors to save</h5>
+
+        @if (SimpleFactors.Count == 0 && MealFactors.Count == 0)
+        {
+            <p class="text-muted mb-0">No factors added yet.</p>
+        }
+        else
+        {
+            <ul class="mb-0">
+                @foreach (var factor in SimpleFactors)
+                {
+                    <li>@factor.Category - @factor.Name (@factor.Detail)</li>
+                }
+                @foreach (var meal in MealFactors)
+                {
+                    <li>meal:@meal.MealType - [@string.Join(", ", meal.Ingredients)]</li>
+                }
+            </ul>
+        }
+    </div>
+</div>
+
+<button class="btn btn-success" @onclick="SaveDay">Save day</button>
+
+@if (!string.IsNullOrWhiteSpace(StatusMessage))
+{
+    <div class="alert alert-info mt-3">@StatusMessage</div>
+}
+
+@code {
+    private DateOnly SelectedDay { get; set; } = DateOnly.FromDateTime(DateTime.Today);
+    private SleepQuality SelectedSleepQuality { get; set; } = SleepQuality.SoSo;
+    private string? DailyNotes { get; set; }
+
+    private FactorCategory NewSimpleCategory { get; set; } = FactorCategory.Nap;
+    private string? NewSimpleName { get; set; }
+    private string? NewSimpleDetail { get; set; }
+
+    private string NewMealType { get; set; } = "pranzo";
+    private string? NewMealIngredients { get; set; }
+    private string? NewMealDetail { get; set; }
+
+    private string? StatusMessage { get; set; }
+
+    private List<SimpleFactorInput> SimpleFactors { get; } = [];
+    private List<MealFactorInput> MealFactors { get; } = [];
+
+    private static IReadOnlyList<FactorCategory> SelectableSimpleCategories { get; } =
+    [
+        FactorCategory.Nap,
+        FactorCategory.Conflict,
+        FactorCategory.Bath,
+        FactorCategory.Incident,
+        FactorCategory.Other
+    ];
+
+    private void AddSimpleFactor()
+    {
+        if (string.IsNullOrWhiteSpace(NewSimpleName))
+        {
+            StatusMessage = "Factor name is required.";
+            return;
+        }
+
+        SimpleFactors.Add(new SimpleFactorInput(NewSimpleCategory, NewSimpleName, NewSimpleDetail));
+        NewSimpleName = null;
+        NewSimpleDetail = null;
+        StatusMessage = "Single factor added.";
+    }
+
+    private void AddMealFactor()
+    {
+        var ingredients = (NewMealIngredients ?? string.Empty)
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        if (ingredients.Count == 0)
+        {
+            StatusMessage = "Add at least one ingredient for a meal factor.";
+            return;
+        }
+
+        MealFactors.Add(new MealFactorInput(NewMealType, ingredients, NewMealDetail));
+        NewMealIngredients = null;
+        NewMealDetail = null;
+        StatusMessage = "Meal factor added.";
+    }
+
+    private async Task SaveDay()
+    {
+        if (SimpleFactors.Count == 0 && MealFactors.Count == 0)
+        {
+            StatusMessage = "Add at least one factor before saving.";
+            return;
+        }
+
+        var input = new DailyLogInput(
+            SelectedDay,
+            SelectedSleepQuality,
+            DailyNotes,
+            SimpleFactors.ToList(),
+            MealFactors.ToList());
+
+        await DailyLogService.AddDailyLogAsync(input);
+
+        SimpleFactors.Clear();
+        MealFactors.Clear();
+        DailyNotes = null;
+
+        StatusMessage = "Day saved in SQLite.";
+    }
+}

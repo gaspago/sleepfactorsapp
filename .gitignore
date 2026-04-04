@@ -1,0 +1,14 @@
+bin/
+obj/
+.vs/
+.vscode/
+*.user
+*.swp
+*.swo
+App_Data/sleepfactors.db
+App_Data/sleepfactors.db-shm
+App_Data/sleepfactors.db-wal
+.DS_Store
+.idea/
+dist/
+node_modules/
