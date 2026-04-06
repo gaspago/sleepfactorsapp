@@ -67,4 +67,42 @@ public sealed class DailyLogService(SleepFactorsDbContext dbContext, IHubContext
             .OrderByDescending(log => log.Day)
             .ToListAsync(cancellationToken);
     }
+
+    public async Task<IReadOnlyList<string>> GetHistoricalMealTypesAsync(CancellationToken cancellationToken = default)
+    {
+        return await dbContext.DailyLogs
+            .AsNoTracking()
+            .SelectMany(log => log.Factors)
+            .OfType<MealFactor>()
+            .Select(f => f.MealType)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(x => x)
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<string>> GetHistoricalIngredientsAsync(CancellationToken cancellationToken = default)
+    {
+        return await dbContext.DailyLogs
+            .AsNoTracking()
+            .SelectMany(log => log.Factors)
+            .OfType<MealFactor>()
+            .SelectMany(meal => meal.Children)
+            .Where(f => f.Category == FactorCategory.Ingredient)
+            .Select(f => f.Name)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(x => x)
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<string>> GetHistoricalSimpleFactorNamesAsync(CancellationToken cancellationToken = default)
+    {
+        return await dbContext.DailyLogs
+            .AsNoTracking()
+            .SelectMany(log => log.Factors)
+            .OfType<SimpleFactor>()
+            .Select(f => f.Name)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(x => x)
+            .ToListAsync(cancellationToken);
+    }
 }

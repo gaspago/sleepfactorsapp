@@ -62,12 +62,13 @@
         {
             <div class="mb-3">
                 <label class="form-label fw-bold">Tipo di pasto</label>
-                <InputSelect class="form-select" @bind-Value="NewMealType">
-                    <option value="pranzo">🥗 Pranzo</option>
-                    <option value="merenda">🍎 Merenda</option>
-                    <option value="cena">🍽️ Cena</option>
-                    <option value="spuntino">🥐 Spuntino</option>
-                </InputSelect>
+                <input class="form-control" list="meal-types-list" @bind="NewMealType" placeholder="Es. pranzo, cena, merenda..." />
+                <datalist id="meal-types-list">
+                    @foreach (var meal in HistoricalMealTypes)
+                    {
+                        <option value="@meal" />
+                    }
+                </datalist>
             </div>
 
             <div class="mb-3">
@@ -85,8 +86,14 @@
                     </ul>
                 }
                 <div class="input-group">
-                    <input class="form-control" @bind="NewIngredient" @bind:event="oninput"
+                    <input class="form-control" list="ingredients-list" @bind="NewIngredient" @bind:event="oninput"
                            @onkeydown="IngredientKeyDown" placeholder="Scrivi ingrediente e premi Aggiungi..." />
+                    <datalist id="ingredients-list">
+                        @foreach (var ingredient in HistoricalIngredients)
+                        {
+                            <option value="@ingredient" />
+                        }
+                    </datalist>
                     <button class="btn btn-outline-secondary" type="button" @onclick="AddIngredient">+ Aggiungi</button>
                 </div>
             </div>
@@ -112,7 +119,13 @@
             <div class="row g-2">
                 <div class="col-md-6">
                     <label class="form-label fw-bold">Nome fattore</label>
-                    <InputText class="form-control" @bind-Value="NewSimpleName" placeholder="Es. sonnellino 2 ore, litigio genitori..." />
+                    <input class="form-control" list="factor-names-list" @bind="NewSimpleName" placeholder="Es. sonnellino 2 ore, litigio genitori..." />
+                    <datalist id="factor-names-list">
+                        @foreach (var name in HistoricalSimpleFactorNames)
+                        {
+                            <option value="@name" />
+                        }
+                    </datalist>
                 </div>
                 <div class="col-md-6">
                     <label class="form-label">Dettaglio (opzionale)</label>
@@ -211,6 +224,17 @@
 
     private bool IsMealMode { get; set; }
     private TimeSlot NewTimeSlot { get; set; } = TimeSlot.Pomeriggio;
+
+    private IReadOnlyList<string> HistoricalMealTypes { get; set; } = [];
+    private IReadOnlyList<string> HistoricalIngredients { get; set; } = [];
+    private IReadOnlyList<string> HistoricalSimpleFactorNames { get; set; } = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        HistoricalMealTypes = await DailyLogService.GetHistoricalMealTypesAsync();
+        HistoricalIngredients = await DailyLogService.GetHistoricalIngredientsAsync();
+        HistoricalSimpleFactorNames = await DailyLogService.GetHistoricalSimpleFactorNamesAsync();
+    }
 
     // Fattore singolo
     private FactorCategory NewSimpleCategory { get; set; } = FactorCategory.Other;
