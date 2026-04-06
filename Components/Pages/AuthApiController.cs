@@ -36,14 +36,24 @@ public sealed class AuthApiController(SignInManager<IdentityUser> signInManager,
     }
 
     [HttpPost("login")]
-    public async Task<IActionResult> Login([FromForm] string email, [FromForm] string password)
+    public async Task<IActionResult> Login([FromForm] string userNameOrEmail, [FromForm] string password)
     {
-        if (string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(password))
+        if (string.IsNullOrWhiteSpace(userNameOrEmail) || string.IsNullOrWhiteSpace(password))
         {
-            return BadRequest("Email and password are required.");
+            return BadRequest("Username/email and password are required.");
         }
 
-        var result = await signInManager.PasswordSignInAsync(email, password, isPersistent: false, lockoutOnFailure: false);
+        var loginName = userNameOrEmail.Trim();
+        if (loginName.Contains('@'))
+        {
+            var userByEmail = await userManager.FindByEmailAsync(loginName);
+            if (userByEmail is not null && !string.IsNullOrWhiteSpace(userByEmail.UserName))
+            {
+                loginName = userByEmail.UserName;
+            }
+        }
+
+        var result = await signInManager.PasswordSignInAsync(loginName, password, isPersistent: false, lockoutOnFailure: false);
 
         if (result.Succeeded)
         {
