@@ -1,7 +1,4 @@
 @page "/register"
-@inject UserManager<IdentityUser> UserManager
-@inject SignInManager<IdentityUser> SignInManager
-@inject NavigationManager Navigation
 
 <PageTitle>Register</PageTitle>
 
@@ -12,32 +9,24 @@
                 <div class="card-body">
                     <h3 class="card-title mb-4">Create Account</h3>
 
-                    @if (!string.IsNullOrWhiteSpace(ErrorMessage))
-                    {
-                        <div class="alert alert-danger">@ErrorMessage</div>
-                    }
+                    <form method="post" action="/api/auth/register">
+                        <div class="mb-3">
+                            <label class="form-label">Email</label>
+                            <input class="form-control" name="email" type="email" required />
+                        </div>
 
-                    @if (!string.IsNullOrWhiteSpace(SuccessMessage))
-                    {
-                        <div class="alert alert-success">@SuccessMessage</div>
-                    }
+                        <div class="mb-3">
+                            <label class="form-label">Password</label>
+                            <input class="form-control" name="password" type="password" required />
+                        </div>
 
-                    <div class="mb-3">
-                        <label class="form-label">Email</label>
-                        <InputText class="form-control" @bind-Value="Email" type="email" />
-                    </div>
+                        <div class="mb-3">
+                            <label class="form-label">Confirm Password</label>
+                            <input class="form-control" name="confirmPassword" type="password" required />
+                        </div>
 
-                    <div class="mb-3">
-                        <label class="form-label">Password</label>
-                        <InputText class="form-control" @bind-Value="Password" type="password" />
-                    </div>
-
-                    <div class="mb-3">
-                        <label class="form-label">Confirm Password</label>
-                        <InputText class="form-control" @bind-Value="ConfirmPassword" type="password" />
-                    </div>
-
-                    <button class="btn btn-primary w-100 mb-3" @onclick="RegisterAsync">Register</button>
+                        <button type="submit" class="btn btn-primary w-100 mb-3">Register</button>
+                    </form>
 
                     <p class="text-center text-muted mb-0">
                         Already have an account? <a href="/login">Login here</a>
@@ -47,39 +36,3 @@
         </div>
     </div>
 </div>
-
-@code {
-    private string? Email { get; set; }
-    private string? Password { get; set; }
-    private string? ConfirmPassword { get; set; }
-    private string? ErrorMessage { get; set; }
-    private string? SuccessMessage { get; set; }
-
-    private async Task RegisterAsync()
-    {
-        if (string.IsNullOrWhiteSpace(Email) || string.IsNullOrWhiteSpace(Password) || string.IsNullOrWhiteSpace(ConfirmPassword))
-        {
-            ErrorMessage = "All fields are required.";
-            return;
-        }
-
-        if (Password != ConfirmPassword)
-        {
-            ErrorMessage = "Passwords do not match.";
-            return;
-        }
-
-        var user = new IdentityUser { UserName = Email, Email = Email };
-        var result = await UserManager.CreateAsync(user, Password);
-
-        if (result.Succeeded)
-        {
-            await SignInManager.SignInAsync(user, isPersistent: false);
-            Navigation.NavigateTo("/");
-        }
-        else
-        {
-            ErrorMessage = string.Join(", ", result.Errors.Select(e => e.Description));
-        }
-    }
-}

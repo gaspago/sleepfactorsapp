@@ -35,6 +35,8 @@ builder.Services.AddSignalR();
 
 builder.Services.AddAuthorization();
 builder.Services.AddAuthentication();
+builder.Services.AddControllers();
+
 
 var app = builder.Build();
 
@@ -63,5 +65,7 @@ app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 
 app.MapHub<SleepFactorsHub>("/hubs/sleep-factors");
+app.MapControllers();
+
 
 app.Run();

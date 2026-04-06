@@ -1,13 +1,22 @@
 @page "/logout"
-@inject SignInManager<IdentityUser> SignInManager
-@inject NavigationManager Navigation
 
 <PageTitle>Logout</PageTitle>
 
-@code {
-    protected override async Task OnInitializedAsync()
-    {
-        await SignInManager.SignOutAsync();
-        Navigation.NavigateTo("/login");
-    }
-}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-body">
+                    <h3 class="card-title">Logging out...</h3>
+                    <p>Please wait while you are being logged out.</p>
+
+                    <form method="post" action="/api/auth/logout" id="logoutForm"></form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.getElementById('logoutForm').submit();
+</script>

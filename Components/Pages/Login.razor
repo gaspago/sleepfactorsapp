@@ -1,6 +1,4 @@
 @page "/login"
-@inject SignInManager<IdentityUser> SignInManager
-@inject NavigationManager Navigation
 
 <PageTitle>Login</PageTitle>
 
@@ -11,22 +9,19 @@
                 <div class="card-body">
                     <h3 class="card-title mb-4">Login</h3>
 
-                    @if (!string.IsNullOrWhiteSpace(ErrorMessage))
-                    {
-                        <div class="alert alert-danger">@ErrorMessage</div>
-                    }
+                    <form method="post" action="/api/auth/login">
+                        <div class="mb-3">
+                            <label class="form-label">Email</label>
+                            <input class="form-control" name="email" type="email" required />
+                        </div>
 
-                    <div class="mb-3">
-                        <label class="form-label">Email</label>
-                        <InputText class="form-control" @bind-Value="Email" type="email" />
-                    </div>
+                        <div class="mb-3">
+                            <label class="form-label">Password</label>
+                            <input class="form-control" name="password" type="password" required />
+                        </div>
 
-                    <div class="mb-3">
-                        <label class="form-label">Password</label>
-                        <InputText class="form-control" @bind-Value="Password" type="password" />
-                    </div>
-
-                    <button class="btn btn-primary w-100 mb-3" @onclick="LoginAsync">Login</button>
+                        <button type="submit" class="btn btn-primary w-100 mb-3">Login</button>
+                    </form>
 
                     <p class="text-center text-muted mb-0">
                         No account? <a href="/register">Register here</a>
@@ -36,29 +31,3 @@
         </div>
     </div>
 </div>
-
-@code {
-    private string? Email { get; set; }
-    private string? Password { get; set; }
-    private string? ErrorMessage { get; set; }
-
-    private async Task LoginAsync()
-    {
-        if (string.IsNullOrWhiteSpace(Email) || string.IsNullOrWhiteSpace(Password))
-        {
-            ErrorMessage = "Email and password are required.";
-            return;
-        }
-
-        var result = await SignInManager.PasswordSignInAsync(Email, Password, isPersistent: false, lockoutOnFailure: false);
-
-        if (result.Succeeded)
-        {
-            Navigation.NavigateTo("/");
-        }
-        else
-        {
-            ErrorMessage = "Invalid email or password.";
-        }
-    }
-}
