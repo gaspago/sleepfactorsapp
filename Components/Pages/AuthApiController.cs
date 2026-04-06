@@ -10,9 +10,9 @@ public sealed class AuthApiController(SignInManager<IdentityUser> signInManager,
 {
     [Authorize(Roles = "Admin")]
     [HttpPost("register")]
-    public async Task<IActionResult> Register([FromForm] string email, [FromForm] string password, [FromForm] string confirmPassword)
+    public async Task<IActionResult> Register([FromForm] string userNameOrEmail, [FromForm] string password, [FromForm] string confirmPassword)
     {
-        if (string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(password) || string.IsNullOrWhiteSpace(confirmPassword))
+        if (string.IsNullOrWhiteSpace(userNameOrEmail) || string.IsNullOrWhiteSpace(password) || string.IsNullOrWhiteSpace(confirmPassword))
         {
             return BadRequest("All fields are required.");
         }
@@ -22,7 +22,9 @@ public sealed class AuthApiController(SignInManager<IdentityUser> signInManager,
             return BadRequest("Passwords do not match.");
         }
 
-        var user = new IdentityUser { UserName = email, Email = email };
+        var normalized = userNameOrEmail.Trim();
+        var email = normalized.Contains('@') ? normalized : null;
+        var user = new IdentityUser { UserName = normalized, Email = email };
         var result = await userManager.CreateAsync(user, password);
 
         if (result.Succeeded)

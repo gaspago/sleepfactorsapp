@@ -10,10 +10,10 @@
                 <div class="card-body">
                     <h3 class="card-title mb-4">Create Account</h3>
 
-                    <form method="post" action="/api/auth/register">
+                    <form method="post" action="/api/auth/register" novalidate>
                         <div class="mb-3">
-                            <label class="form-label">Email</label>
-                            <input class="form-control" name="email" type="email" required />
+                            <label class="form-label">Username or Email</label>
+                            <input class="form-control" name="userNameOrEmail" type="text" required />
                         </div>
 
                         <div class="mb-3">
