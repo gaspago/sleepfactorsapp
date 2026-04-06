@@ -62,7 +62,7 @@
         {
             <div class="mb-3">
                 <label class="form-label fw-bold">Tipo di pasto</label>
-                <input class="form-control" list="meal-types-list" @bind="NewMealType" placeholder="Es. pranzo, cena, merenda..." />
+                <input class="form-control" list="meal-types-list" value="@NewMealType" @onchange="@((ChangeEventArgs e) => NewMealType = e.Value?.ToString() ?? string.Empty)" placeholder="Es. pranzo, cena, merenda..." />
                 <datalist id="meal-types-list">
                     @foreach (var meal in HistoricalMealTypes)
                     {
@@ -86,7 +86,7 @@
                     </ul>
                 }
                 <div class="input-group">
-                    <input class="form-control" list="ingredients-list" @bind="NewIngredient" @bind:event="oninput"
+                    <input class="form-control" list="ingredients-list" value="@NewIngredient" @oninput="@((ChangeEventArgs e) => NewIngredient = e.Value?.ToString())"
                            @onkeydown="IngredientKeyDown" placeholder="Scrivi ingrediente e premi Aggiungi..." />
                     <datalist id="ingredients-list">
                         @foreach (var ingredient in HistoricalIngredients)
@@ -119,7 +119,7 @@
             <div class="row g-2">
                 <div class="col-md-6">
                     <label class="form-label fw-bold">Nome fattore</label>
-                    <input class="form-control" list="factor-names-list" @bind="NewSimpleName" placeholder="Es. sonnellino 2 ore, litigio genitori..." />
+                    <input class="form-control" list="factor-names-list" value="@NewSimpleName" @onchange="@((ChangeEventArgs e) => NewSimpleName = e.Value?.ToString())" placeholder="Es. sonnellino 2 ore, litigio genitori..." />
                     <datalist id="factor-names-list">
                         @foreach (var name in HistoricalSimpleFactorNames)
                         {
