@@ -9,6 +9,8 @@ var builder = WebApplication.CreateBuilder(args);
 
 var databasePath = Path.Combine(builder.Environment.ContentRootPath, "App_Data", "sleepfactors.db");
 Directory.CreateDirectory(Path.GetDirectoryName(databasePath)!);
+var dataProtectionKeysPath = Path.Combine(builder.Environment.ContentRootPath, "App_Data", "keys");
+Directory.CreateDirectory(dataProtectionKeysPath);
 
 // Add services to the container.
 builder.Services.AddRazorComponents()
@@ -16,6 +18,10 @@ builder.Services.AddRazorComponents()
 
 builder.Services.AddDbContext<SleepFactorsDbContext>(options =>
     options.UseSqlite($"Data Source={databasePath}"));
+
+builder.Services.AddDataProtection()
+    .PersistKeysToFileSystem(new DirectoryInfo(dataProtectionKeysPath))
+    .SetApplicationName("SleepFactorsApp");
 
 builder.Services.AddIdentity<IdentityUser, IdentityRole>()
     .AddEntityFrameworkStores<SleepFactorsDbContext>()

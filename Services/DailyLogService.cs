@@ -74,8 +74,9 @@ public sealed class DailyLogService(SleepFactorsDbContext dbContext, IHubContext
             .AsNoTracking()
             .SelectMany(log => log.Factors)
             .OfType<MealFactor>()
-            .Select(f => f.MealType)
-            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Select(f => f.MealType.ToLower())
+            .Where(x => x != "")
+            .Distinct()
             .OrderBy(x => x)
             .ToListAsync(cancellationToken);
     }
@@ -88,8 +89,9 @@ public sealed class DailyLogService(SleepFactorsDbContext dbContext, IHubContext
             .OfType<MealFactor>()
             .SelectMany(meal => meal.Children)
             .Where(f => f.Category == FactorCategory.Ingredient)
-            .Select(f => f.Name)
-            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Select(f => f.Name.ToLower())
+            .Where(x => x != "")
+            .Distinct()
             .OrderBy(x => x)
             .ToListAsync(cancellationToken);
     }
@@ -100,8 +102,9 @@ public sealed class DailyLogService(SleepFactorsDbContext dbContext, IHubContext
             .AsNoTracking()
             .SelectMany(log => log.Factors)
             .OfType<SimpleFactor>()
-            .Select(f => f.Name)
-            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Select(f => f.Name.ToLower())
+            .Where(x => x != "")
+            .Distinct()
             .OrderBy(x => x)
             .ToListAsync(cancellationToken);
     }
