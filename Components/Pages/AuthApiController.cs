@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace SleepFactorsApp.Components.Pages;
@@ -7,6 +8,7 @@ namespace SleepFactorsApp.Components.Pages;
 [Route("/api/auth")]
 public sealed class AuthApiController(SignInManager<IdentityUser> signInManager, UserManager<IdentityUser> userManager) : ControllerBase
 {
+    [Authorize(Roles = "Admin")]
     [HttpPost("register")]
     public async Task<IActionResult> Register([FromForm] string email, [FromForm] string password, [FromForm] string confirmPassword)
     {
