@@ -8,21 +8,13 @@
 <h1>Aggiungi Fattori Giornalieri</h1>
 
 <div class="row g-3 mb-4">
-    <div class="col-md-3">
-        <label class="form-label fw-bold">Giorno</label>
+    <div class="col-md-4">
+        <label class="form-label fw-bold">Giorno dei fattori (pre-salvataggio)</label>
         <InputDate class="form-control" @bind-Value="SelectedDay" />
     </div>
-    <div class="col-md-3">
-        <label class="form-label fw-bold">Qualità del sonno</label>
-        <InputSelect class="form-select" @bind-Value="SelectedSleepQuality">
-            <option value="@SleepQuality.Bad">😴 Ha dormito male</option>
-            <option value="@SleepQuality.SoSo">😐 Ha dormito così così</option>
-            <option value="@SleepQuality.Good">😊 Ha dormito bene</option>
-        </InputSelect>
-    </div>
-    <div class="col-md-6">
-        <label class="form-label fw-bold">Note</label>
-        <InputText class="form-control" @bind-Value="DailyNotes" placeholder="Note opzionali..." />
+    <div class="col-md-8">
+        <label class="form-label fw-bold">Note fattori</label>
+        <InputText class="form-control" @bind-Value="DailyNotes" placeholder="Note opzionali sui fattori della giornata..." />
     </div>
 </div>
 
@@ -213,9 +205,55 @@
     <div class="alert alert-success mt-2">@StatusMessage</div>
 }
 
-<button class="btn btn-success btn-lg w-100 mb-4" type="button" @onclick="SaveDay">
-    💾 Salva giornata
-</button>
+<div class="row g-2 mb-3">
+    <div class="col-md-6 d-grid">
+        <button class="btn btn-primary btn-lg" type="button" @onclick="SaveDraft">
+            💾 Pre-salva fattori (senza sonno)
+        </button>
+    </div>
+    <div class="col-md-6 d-grid">
+        <button class="btn btn-success btn-lg" type="button" @onclick="CommitSleep" disabled="@string.IsNullOrWhiteSpace(CommitDayIso)">
+            ✅ Commit finale sonno
+        </button>
+    </div>
+</div>
+
+<div class="card mb-4">
+    <div class="card-header fw-bold">Commit finale del sonno (giorno successivo)</div>
+    <div class="card-body">
+        @if (PendingDraftDays.Count == 0)
+        {
+            <p class="text-muted mb-0">Nessuna giornata in pre-salvataggio.</p>
+        }
+        else
+        {
+            <div class="row g-2">
+                <div class="col-md-4">
+                    <label class="form-label">Giorno da confermare</label>
+                    <select class="form-select" value="@CommitDayIso" @onchange="@((ChangeEventArgs e) => CommitDayIso = e.Value?.ToString())">
+                        <option value="">Seleziona giorno...</option>
+                        @foreach (var day in PendingDraftDays)
+                        {
+                            <option value="@day.ToString("yyyy-MM-dd")">@day.ToString("dd/MM/yyyy")</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Come ha dormito</label>
+                    <InputSelect class="form-select" @bind-Value="SelectedSleepQuality">
+                        <option value="@SleepQuality.Bad">😴 Ha dormito male</option>
+                        <option value="@SleepQuality.SoSo">😐 Ha dormito così così</option>
+                        <option value="@SleepQuality.Good">😊 Ha dormito bene</option>
+                    </InputSelect>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Note commit (opzionale)</label>
+                    <InputText class="form-control" @bind-Value="CommitNotes" placeholder="Nota finale sul sonno..." />
+                </div>
+            </div>
+        }
+    </div>
+</div>
 
 @code {
     private DateOnly SelectedDay { get; set; } = DateOnly.FromDateTime(DateTime.Today);
@@ -228,12 +266,21 @@
     private IReadOnlyList<string> HistoricalMealTypes { get; set; } = [];
     private IReadOnlyList<string> HistoricalIngredients { get; set; } = [];
     private IReadOnlyList<string> HistoricalSimpleFactorNames { get; set; } = [];
+    private IReadOnlyList<DateOnly> PendingDraftDays { get; set; } = [];
+    private string? CommitDayIso { get; set; }
+    private string? CommitNotes { get; set; }
 
     protected override async Task OnInitializedAsync()
+    {
+        await RefreshReferenceDataAsync();
+    }
+
+    private async Task RefreshReferenceDataAsync()
     {
         HistoricalMealTypes = await DailyLogService.GetHistoricalMealTypesAsync();
         HistoricalIngredients = await DailyLogService.GetHistoricalIngredientsAsync();
         HistoricalSimpleFactorNames = await DailyLogService.GetHistoricalSimpleFactorNamesAsync();
+        PendingDraftDays = await DailyLogService.GetPendingDraftDaysAsync();
     }
 
     // Fattore singolo
@@ -329,22 +376,54 @@
         }
     }
 
-    private async Task SaveDay()
+    private async Task SaveDraft()
     {
         StatusMessage = null;
         if (SimpleFactors.Count == 0 && MealFactors.Count == 0)
         {
-            StatusMessage = "Aggiungi almeno un fattore prima di salvare.";
+            StatusMessage = "Aggiungi almeno un fattore prima del pre-salvataggio.";
             return;
         }
 
-        await DailyLogService.AddDailyLogAsync(new DailyLogInput(
-            SelectedDay, SelectedSleepQuality, DailyNotes,
-            SimpleFactors.ToList(), MealFactors.ToList()));
+        await DailyLogService.SaveDraftAsync(new DailyDraftInput(
+            SelectedDay,
+            DailyNotes,
+            SimpleFactors.ToList(),
+            MealFactors.ToList()));
 
         SimpleFactors.Clear();
         MealFactors.Clear();
         DailyNotes = null;
-        StatusMessage = "✅ Giornata salvata nel database.";
+        await RefreshReferenceDataAsync();
+
+        StatusMessage = "✅ Fattori pre-salvati. Domani puoi fare il commit del sonno.";
+    }
+
+    private async Task CommitSleep()
+    {
+        StatusMessage = null;
+
+        if (!DateOnly.TryParse(CommitDayIso, out var commitDay))
+        {
+            StatusMessage = "Seleziona un giorno in pre-salvataggio da confermare.";
+            return;
+        }
+
+        try
+        {
+            await DailyLogService.CommitSleepAsync(new CommitSleepInput(
+                commitDay,
+                SelectedSleepQuality,
+                CommitNotes));
+
+            CommitDayIso = null;
+            CommitNotes = null;
+            await RefreshReferenceDataAsync();
+            StatusMessage = "🎉 Commit completato: sonno associato alla giornata pre-salvata.";
+        }
+        catch (InvalidOperationException ex)
+        {
+            StatusMessage = ex.Message;
+        }
     }
 }

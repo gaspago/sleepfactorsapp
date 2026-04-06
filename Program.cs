@@ -51,6 +51,15 @@ using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<SleepFactorsDbContext>();
     db.Database.EnsureCreated();
+
+    try
+    {
+        db.Database.ExecuteSqlRaw("SELECT \"IsCommitted\" FROM \"DailyLogs\" LIMIT 1;");
+    }
+    catch
+    {
+        db.Database.ExecuteSqlRaw("ALTER TABLE \"DailyLogs\" ADD COLUMN \"IsCommitted\" INTEGER NOT NULL DEFAULT 1;");
+    }
 }
 
 await IdentitySeeder.SeedAsync(app.Services);

@@ -14,54 +14,84 @@ public sealed class DailyLogService(SleepFactorsDbContext dbContext, IHubContext
         {
             Day = input.Day,
             SleepQuality = input.SleepQuality,
+            IsCommitted = true,
             Notes = string.IsNullOrWhiteSpace(input.Notes) ? null : input.Notes.Trim()
         };
 
-        foreach (var factor in input.SimpleFactors)
-        {
-            dailyLog.Factors.Add(new SimpleFactor
-            {
-                Name = factor.Name.Trim(),
-                Detail = string.IsNullOrWhiteSpace(factor.Detail) ? null : factor.Detail.Trim(),
-                Category = factor.Category,
-                TimeSlot = factor.TimeSlot
-            });
-        }
-
-        foreach (var meal in input.MealFactors)
-        {
-            var mealFactor = new MealFactor
-            {
-                Name = meal.MealType.Trim().ToLowerInvariant(),
-                MealType = meal.MealType.Trim().ToLowerInvariant(),
-                Detail = string.IsNullOrWhiteSpace(meal.Detail) ? null : meal.Detail.Trim(),
-                Category = FactorCategory.Meal,
-                TimeSlot = meal.TimeSlot
-            };
-
-            foreach (var ingredient in meal.Ingredients.Where(value => !string.IsNullOrWhiteSpace(value)))
-            {
-                mealFactor.Children.Add(new SimpleFactor
-                {
-                    Name = ingredient.Trim().ToLowerInvariant(),
-                    Category = FactorCategory.Ingredient,
-                    TimeSlot = meal.TimeSlot  // gli ingredienti ereditano il time slot del pasto
-                });
-            }
-
-            dailyLog.Factors.Add(mealFactor);
-        }
+        AddFactors(dailyLog, input.SimpleFactors, input.MealFactors);
 
         dbContext.DailyLogs.Add(dailyLog);
         await dbContext.SaveChangesAsync(cancellationToken);
-
         await hubContext.Clients.All.SendAsync("DailyLogSaved", cancellationToken);
+    }
+
+    public async Task SaveDraftAsync(DailyDraftInput input, CancellationToken cancellationToken = default)
+    {
+        var draft = await dbContext.DailyLogs
+            .Include(log => log.Factors)
+                .ThenInclude(factor => factor.Children)
+            .FirstOrDefaultAsync(log => log.Day == input.Day && !log.IsCommitted, cancellationToken);
+
+        if (draft is null)
+        {
+            draft = new DailyLog
+            {
+                Day = input.Day,
+                SleepQuality = SleepQuality.SoSo,
+                IsCommitted = false,
+                Notes = string.IsNullOrWhiteSpace(input.Notes) ? null : input.Notes.Trim()
+            };
+            dbContext.DailyLogs.Add(draft);
+        }
+        else
+        {
+            draft.Factors.Clear();
+            draft.Notes = string.IsNullOrWhiteSpace(input.Notes) ? null : input.Notes.Trim();
+        }
+
+        AddFactors(draft, input.SimpleFactors, input.MealFactors);
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+        await hubContext.Clients.All.SendAsync("DailyLogSaved", cancellationToken);
+    }
+
+    public async Task CommitSleepAsync(CommitSleepInput input, CancellationToken cancellationToken = default)
+    {
+        var draft = await dbContext.DailyLogs
+            .FirstOrDefaultAsync(log => log.Day == input.Day && !log.IsCommitted, cancellationToken);
+
+        if (draft is null)
+        {
+            throw new InvalidOperationException("Nessun pre-salvataggio trovato per il giorno selezionato.");
+        }
+
+        draft.SleepQuality = input.SleepQuality;
+        draft.IsCommitted = true;
+
+        if (!string.IsNullOrWhiteSpace(input.Notes))
+        {
+            draft.Notes = input.Notes.Trim();
+        }
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+        await hubContext.Clients.All.SendAsync("DailyLogSaved", cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<DateOnly>> GetPendingDraftDaysAsync(CancellationToken cancellationToken = default)
+    {
+        return await dbContext.DailyLogs
+            .AsNoTracking()
+            .Where(log => !log.IsCommitted)
+            .OrderBy(log => log.Day)
+            .Select(log => log.Day)
+            .ToListAsync(cancellationToken);
     }
 
     public async Task<IReadOnlyList<DailyLog>> GetAllLogsAsync(CancellationToken cancellationToken = default)
     {
         return await dbContext.DailyLogs
             .AsNoTracking()
+            .Where(log => log.IsCommitted)
             .Include(log => log.Factors)
                 .ThenInclude(factor => factor.Children)
             .OrderByDescending(log => log.Day)
@@ -107,5 +137,43 @@ public sealed class DailyLogService(SleepFactorsDbContext dbContext, IHubContext
             .Distinct()
             .OrderBy(x => x)
             .ToListAsync(cancellationToken);
+    }
+
+    private static void AddFactors(DailyLog dailyLog, IReadOnlyList<SimpleFactorInput> simpleFactors, IReadOnlyList<MealFactorInput> mealFactors)
+    {
+        foreach (var factor in simpleFactors)
+        {
+            dailyLog.Factors.Add(new SimpleFactor
+            {
+                Name = factor.Name.Trim(),
+                Detail = string.IsNullOrWhiteSpace(factor.Detail) ? null : factor.Detail.Trim(),
+                Category = factor.Category,
+                TimeSlot = factor.TimeSlot
+            });
+        }
+
+        foreach (var meal in mealFactors)
+        {
+            var mealFactor = new MealFactor
+            {
+                Name = meal.MealType.Trim().ToLowerInvariant(),
+                MealType = meal.MealType.Trim().ToLowerInvariant(),
+                Detail = string.IsNullOrWhiteSpace(meal.Detail) ? null : meal.Detail.Trim(),
+                Category = FactorCategory.Meal,
+                TimeSlot = meal.TimeSlot
+            };
+
+            foreach (var ingredient in meal.Ingredients.Where(value => !string.IsNullOrWhiteSpace(value)))
+            {
+                mealFactor.Children.Add(new SimpleFactor
+                {
+                    Name = ingredient.Trim().ToLowerInvariant(),
+                    Category = FactorCategory.Ingredient,
+                    TimeSlot = meal.TimeSlot
+                });
+            }
+
+            dailyLog.Factors.Add(mealFactor);
+        }
     }
 }

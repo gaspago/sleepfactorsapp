@@ -13,6 +13,17 @@ public sealed record DailyLogInput(
     IReadOnlyList<SimpleFactorInput> SimpleFactors,
     IReadOnlyList<MealFactorInput> MealFactors);
 
+public sealed record DailyDraftInput(
+    DateOnly Day,
+    string? Notes,
+    IReadOnlyList<SimpleFactorInput> SimpleFactors,
+    IReadOnlyList<MealFactorInput> MealFactors);
+
+public sealed record CommitSleepInput(
+    DateOnly Day,
+    SleepQuality SleepQuality,
+    string? Notes);
+
 public sealed record AnalysisItem(string Key, int Occurrences, int BadCount, int SoSoCount, int GoodCount, double RiskScore);
 
 public sealed record AnalysisReport(
