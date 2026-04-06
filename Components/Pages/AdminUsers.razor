@@ -1,0 +1,306 @@
+@page "/admin/users"
+@attribute [Authorize(Roles = "Admin")]
+@rendermode InteractiveServer
+@inject UserManager<IdentityUser> UserManager
+@inject RoleManager<IdentityRole> RoleManager
+
+<PageTitle>Admin - Users</PageTitle>
+
+<h1>User Management</h1>
+<p class="text-muted">Only admin users can access this page.</p>
+
+@if (!string.IsNullOrWhiteSpace(StatusMessage))
+{
+    <div class="alert alert-info">@StatusMessage</div>
+}
+
+<div class="card mb-4">
+    <div class="card-body">
+        <h5 class="card-title">Create user</h5>
+        <div class="row g-2">
+            <div class="col-md-4">
+                <input class="form-control" @bind="NewUserName" placeholder="Username" />
+            </div>
+            <div class="col-md-4">
+                <input class="form-control" @bind="NewPassword" placeholder="Password" type="password" />
+            </div>
+            <div class="col-md-2">
+                <select class="form-select" @bind="NewRole">
+                    @foreach (var role in AvailableRoles)
+                    {
+                        <option value="@role">@role</option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-2 d-grid">
+                <button class="btn btn-primary" @onclick="CreateUserAsync">Create</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <h5 class="card-title">Users</h5>
+
+        @if (Users.Count == 0)
+        {
+            <p class="text-muted mb-0">No users found.</p>
+        }
+        else
+        {
+            <table class="table table-sm table-striped">
+                <thead>
+                    <tr>
+                        <th>UserName</th>
+                        <th>Email</th>
+                        <th>Role</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var user in Users)
+                    {
+                        <tr>
+                            <td>
+                                @if (EditUserId == user.Id)
+                                {
+                                    <input class="form-control form-control-sm" @bind="EditUserName" />
+                                }
+                                else
+                                {
+                                    @user.UserName
+                                }
+                            </td>
+                            <td>
+                                @if (EditUserId == user.Id)
+                                {
+                                    <input class="form-control form-control-sm" @bind="EditEmail" />
+                                }
+                                else
+                                {
+                                    @user.Email
+                                }
+                            </td>
+                            <td>
+                                @if (EditUserId == user.Id)
+                                {
+                                    <select class="form-select form-select-sm" @bind="EditRole">
+                                        @foreach (var role in AvailableRoles)
+                                        {
+                                            <option value="@role">@role</option>
+                                        }
+                                    </select>
+                                }
+                                else
+                                {
+                                    @user.Role
+                                }
+                            </td>
+                            <td>
+                                @if (EditUserId == user.Id)
+                                {
+                                    <div class="d-flex gap-1">
+                                        <input class="form-control form-control-sm" @bind="EditPassword" placeholder="New password (optional)" type="password" />
+                                        <button class="btn btn-success btn-sm" @onclick="() => SaveEditAsync(user.Id)">Save</button>
+                                        <button class="btn btn-secondary btn-sm" @onclick="CancelEdit">Cancel</button>
+                                    </div>
+                                }
+                                else
+                                {
+                                    <div class="d-flex gap-1">
+                                        <button class="btn btn-outline-primary btn-sm" @onclick="() => StartEdit(user)">Edit</button>
+                                        <button class="btn btn-outline-danger btn-sm" @onclick="() => DeleteUserAsync(user.Id)" disabled="@(user.UserName == "adminuser")">Delete</button>
+                                    </div>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    </div>
+</div>
+
+@code {
+    private sealed record UserRow(string Id, string UserName, string? Email, string Role);
+
+    private List<UserRow> Users { get; set; } = [];
+    private List<string> AvailableRoles { get; set; } = [];
+
+    private string NewUserName { get; set; } = string.Empty;
+    private string NewPassword { get; set; } = string.Empty;
+    private string NewRole { get; set; } = IdentitySeeder.UserRole;
+
+    private string? EditUserId { get; set; }
+    private string EditUserName { get; set; } = string.Empty;
+    private string EditEmail { get; set; } = string.Empty;
+    private string EditRole { get; set; } = IdentitySeeder.UserRole;
+    private string EditPassword { get; set; } = string.Empty;
+
+    private string? StatusMessage { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        AvailableRoles = await RoleManager.Roles
+            .Select(role => role.Name!)
+            .OrderBy(name => name)
+            .ToListAsync();
+
+        if (AvailableRoles.Count == 0)
+        {
+            AvailableRoles = [IdentitySeeder.AdminRole, IdentitySeeder.UserRole];
+        }
+
+        if (!AvailableRoles.Contains(NewRole))
+        {
+            NewRole = AvailableRoles[0];
+        }
+
+        var users = await UserManager.Users
+            .OrderBy(user => user.UserName)
+            .ToListAsync();
+
+        var rows = new List<UserRow>();
+        foreach (var user in users)
+        {
+            var roles = await UserManager.GetRolesAsync(user);
+            rows.Add(new UserRow(user.Id, user.UserName ?? string.Empty, user.Email, roles.FirstOrDefault() ?? IdentitySeeder.UserRole));
+        }
+
+        Users = rows;
+    }
+
+    private async Task CreateUserAsync()
+    {
+        if (string.IsNullOrWhiteSpace(NewUserName) || string.IsNullOrWhiteSpace(NewPassword))
+        {
+            StatusMessage = "Username and password are required.";
+            return;
+        }
+
+        var user = new IdentityUser
+        {
+            UserName = NewUserName.Trim(),
+            Email = NewUserName.Trim()
+        };
+
+        var createResult = await UserManager.CreateAsync(user, NewPassword);
+        if (!createResult.Succeeded)
+        {
+            StatusMessage = string.Join(", ", createResult.Errors.Select(error => error.Description));
+            return;
+        }
+
+        if (!string.IsNullOrWhiteSpace(NewRole) && await RoleManager.RoleExistsAsync(NewRole))
+        {
+            await UserManager.AddToRoleAsync(user, NewRole);
+        }
+
+        NewUserName = string.Empty;
+        NewPassword = string.Empty;
+        StatusMessage = "User created.";
+        await LoadAsync();
+    }
+
+    private void StartEdit(UserRow row)
+    {
+        EditUserId = row.Id;
+        EditUserName = row.UserName;
+        EditEmail = row.Email ?? string.Empty;
+        EditRole = row.Role;
+        EditPassword = string.Empty;
+    }
+
+    private void CancelEdit()
+    {
+        EditUserId = null;
+        EditUserName = string.Empty;
+        EditEmail = string.Empty;
+        EditRole = IdentitySeeder.UserRole;
+        EditPassword = string.Empty;
+    }
+
+    private async Task SaveEditAsync(string userId)
+    {
+        var user = await UserManager.FindByIdAsync(userId);
+        if (user is null)
+        {
+            StatusMessage = "User not found.";
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(EditUserName))
+        {
+            StatusMessage = "Username is required.";
+            return;
+        }
+
+        user.UserName = EditUserName.Trim();
+        user.Email = string.IsNullOrWhiteSpace(EditEmail) ? null : EditEmail.Trim();
+
+        var updateResult = await UserManager.UpdateAsync(user);
+        if (!updateResult.Succeeded)
+        {
+            StatusMessage = string.Join(", ", updateResult.Errors.Select(error => error.Description));
+            return;
+        }
+
+        var currentRoles = await UserManager.GetRolesAsync(user);
+        if (currentRoles.Count > 0)
+        {
+            await UserManager.RemoveFromRolesAsync(user, currentRoles);
+        }
+
+        if (!string.IsNullOrWhiteSpace(EditRole) && await RoleManager.RoleExistsAsync(EditRole))
+        {
+            await UserManager.AddToRoleAsync(user, EditRole);
+        }
+
+        if (!string.IsNullOrWhiteSpace(EditPassword))
+        {
+            var token = await UserManager.GeneratePasswordResetTokenAsync(user);
+            var resetResult = await UserManager.ResetPasswordAsync(user, token, EditPassword);
+            if (!resetResult.Succeeded)
+            {
+                StatusMessage = string.Join(", ", resetResult.Errors.Select(error => error.Description));
+                return;
+            }
+        }
+
+        CancelEdit();
+        StatusMessage = "User updated.";
+        await LoadAsync();
+    }
+
+    private async Task DeleteUserAsync(string userId)
+    {
+        var user = await UserManager.FindByIdAsync(userId);
+        if (user is null)
+        {
+            StatusMessage = "User not found.";
+            return;
+        }
+
+        if (string.Equals(user.UserName, IdentitySeeder.SeedAdminUserName, StringComparison.OrdinalIgnoreCase))
+        {
+            StatusMessage = "Seed admin user cannot be deleted.";
+            return;
+        }
+
+        var deleteResult = await UserManager.DeleteAsync(user);
+        if (!deleteResult.Succeeded)
+        {
+            StatusMessage = string.Join(", ", deleteResult.Errors.Select(error => error.Description));
+            return;
+        }
+
+        StatusMessage = "User deleted.";
+        await LoadAsync();
+    }
+}
