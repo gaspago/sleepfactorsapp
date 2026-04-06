@@ -15,6 +15,9 @@ public abstract class FactorBase
     public string? Detail { get; set; }
     public FactorCategory Category { get; set; }
 
+    // Momento della giornata — usato come peso nell'analisi del rischio
+    public TimeSlot TimeSlot { get; set; } = TimeSlot.Pomeriggio;
+
     public abstract bool IsComposite { get; }
 
     public virtual string Key => $"{Category}:{Name}".Trim().ToLowerInvariant();
@@ -29,6 +32,18 @@ public abstract class FactorBase
             {
                 yield return childKey;
             }
+        }
+    }
+
+    // Restituisce ogni chiave con il suo time slot per il calcolo del rischio ponderato
+    // I figli (ingredienti) ereditano il time slot del genitore
+    public virtual IEnumerable<(string Key, TimeSlot Slot)> FlattenKeysWithTimeSlot()
+    {
+        yield return (Key, TimeSlot);
+
+        foreach (var child in Children)
+        {
+            yield return (child.Key, TimeSlot);
         }
     }
 }

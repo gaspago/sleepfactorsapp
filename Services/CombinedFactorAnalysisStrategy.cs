@@ -2,70 +2,71 @@ using SleepFactorsApp.Domain;
 
 namespace SleepFactorsApp.Services;
 
-// Pattern: Concrete Strategy. Ranks factor combinations (pairs) to detect interactions.
+// Pattern: Concrete Strategy. Ranks factor combinations (pairs) con peso orario medio della coppia.
 public sealed class CombinedFactorAnalysisStrategy : ISleepAnalysisStrategy
 {
     public string Name => "combined";
 
     public IReadOnlyList<AnalysisItem> Analyze(IReadOnlyList<DailyLog> logs)
     {
-        var bucket = new Dictionary<string, (int total, int bad, int soSo, int good)>();
+        var bucket = new Dictionary<string, (int rBad, int rSoSo, int rGood, int rTotal, double wBad, double wSoSo, double wGood, double wTotal)>();
 
         foreach (var log in logs)
         {
-            var uniqueKeys = log.Factors
-                .SelectMany(factor => factor.FlattenKeys())
-                .Distinct()
-                .OrderBy(key => key)
+            var entries = log.Factors
+                .SelectMany(factor => factor.FlattenKeysWithTimeSlot())
+                .GroupBy(item => item.Key)
+                .Select(g => (Key: g.Key, Weight: g.Max(item => SingleFactorAnalysisStrategy.TimeWeight(item.Slot))))
+                .OrderBy(item => item.Key)
                 .ToList();
 
-            for (var i = 0; i < uniqueKeys.Count; i++)
+            for (var i = 0; i < entries.Count; i++)
             {
-                for (var j = i + 1; j < uniqueKeys.Count; j++)
+                for (var j = i + 1; j < entries.Count; j++)
                 {
-                    var pair = $"{uniqueKeys[i]} + {uniqueKeys[j]}";
-                    bucket.TryGetValue(pair, out var value);
-                    value.total++;
+                    var pair = $"{entries[i].Key} + {entries[j].Key}";
+                    // Peso della coppia = media dei pesi individuali
+                    var pairWeight = (entries[i].Weight + entries[j].Weight) / 2.0;
+
+                    bucket.TryGetValue(pair, out var v);
+                    v.rTotal++;
+                    v.wTotal += pairWeight;
 
                     switch (log.SleepQuality)
                     {
                         case SleepQuality.Bad:
-                            value.bad++;
+                            v.rBad++; v.wBad += pairWeight;
                             break;
                         case SleepQuality.SoSo:
-                            value.soSo++;
+                            v.rSoSo++; v.wSoSo += pairWeight;
                             break;
                         case SleepQuality.Good:
-                            value.good++;
+                            v.rGood++; v.wGood += pairWeight;
                             break;
                     }
 
-                    bucket[pair] = value;
+                    bucket[pair] = v;
                 }
             }
         }
 
         return bucket
-            .Where(item => item.Value.total >= 2)
+            .Where(item => item.Value.rTotal >= 2)
             .Select(item => new AnalysisItem(
                 item.Key,
-                item.Value.total,
-                item.Value.bad,
-                item.Value.soSo,
-                item.Value.good,
-                ComputeRisk(item.Value.bad, item.Value.soSo, item.Value.good, item.Value.total)))
+                item.Value.rTotal,
+                item.Value.rBad,
+                item.Value.rSoSo,
+                item.Value.rGood,
+                ComputeWeightedRisk(item.Value.wBad, item.Value.wSoSo, item.Value.wGood, item.Value.wTotal)))
             .OrderByDescending(item => item.RiskScore)
             .ThenByDescending(item => item.Occurrences)
             .ToList();
     }
 
-    private static double ComputeRisk(int bad, int soSo, int good, int total)
+    private static double ComputeWeightedRisk(double wBad, double wSoSo, double wGood, double wTotal)
     {
-        if (total == 0)
-        {
-            return 0;
-        }
-
-        return Math.Round((bad + (0.5 * soSo) - good) / total, 4);
+        if (wTotal == 0) return 0;
+        return Math.Round((wBad + (0.5 * wSoSo) - wGood) / wTotal, 4);
     }
 }

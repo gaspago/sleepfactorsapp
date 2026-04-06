@@ -2,9 +2,9 @@ using SleepFactorsApp.Domain;
 
 namespace SleepFactorsApp.Services;
 
-public sealed record SimpleFactorInput(FactorCategory Category, string Name, string? Detail);
+public sealed record SimpleFactorInput(FactorCategory Category, string Name, string? Detail, TimeSlot TimeSlot = TimeSlot.Pomeriggio);
 
-public sealed record MealFactorInput(string MealType, IReadOnlyList<string> Ingredients, string? Detail);
+public sealed record MealFactorInput(string MealType, IReadOnlyList<string> Ingredients, string? Detail, TimeSlot TimeSlot = TimeSlot.Pomeriggio);
 
 public sealed record DailyLogInput(
     DateOnly Day,

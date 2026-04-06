@@ -3,191 +3,324 @@
 @rendermode InteractiveServer
 @inject DailyLogService DailyLogService
 
-<PageTitle>Add Daily Factors</PageTitle>
+<PageTitle>Aggiungi Fattori Giornalieri</PageTitle>
 
-<h1>Add Daily Factors</h1>
+<h1>Aggiungi Fattori Giornalieri</h1>
 
-<div class="row g-3 mb-3">
+<div class="row g-3 mb-4">
     <div class="col-md-3">
-        <label class="form-label">Day</label>
+        <label class="form-label fw-bold">Giorno</label>
         <InputDate class="form-control" @bind-Value="SelectedDay" />
     </div>
     <div class="col-md-3">
-        <label class="form-label">Sleep quality</label>
+        <label class="form-label fw-bold">Qualità del sonno</label>
         <InputSelect class="form-select" @bind-Value="SelectedSleepQuality">
-            <option value="@SleepQuality.Bad">Sleep bad</option>
-            <option value="@SleepQuality.SoSo">Sleep so-so</option>
-            <option value="@SleepQuality.Good">Sleep good</option>
+            <option value="@SleepQuality.Bad">😴 Ha dormito male</option>
+            <option value="@SleepQuality.SoSo">😐 Ha dormito così così</option>
+            <option value="@SleepQuality.Good">😊 Ha dormito bene</option>
         </InputSelect>
     </div>
     <div class="col-md-6">
-        <label class="form-label">Notes</label>
-        <InputText class="form-control" @bind-Value="DailyNotes" />
+        <label class="form-label fw-bold">Note</label>
+        <InputText class="form-control" @bind-Value="DailyNotes" placeholder="Note opzionali..." />
     </div>
 </div>
 
 <div class="card mb-3">
+    <div class="card-header fw-bold">Aggiungi fattore</div>
     <div class="card-body">
-        <h5 class="card-title">Add single factor</h5>
-        <div class="row g-2">
-            <div class="col-md-3">
-                <InputSelect class="form-select" @bind-Value="NewSimpleCategory">
-                    @foreach (var category in SelectableSimpleCategories)
-                    {
-                        <option value="@category">@category</option>
-                    }
-                </InputSelect>
-            </div>
-            <div class="col-md-3">
-                <InputText class="form-control" @bind-Value="NewSimpleName" placeholder="Factor name" />
-            </div>
-            <div class="col-md-4">
-                <InputText class="form-control" @bind-Value="NewSimpleDetail" placeholder="Detail (optional)" />
-            </div>
-            <div class="col-md-2 d-grid">
-                <button class="btn btn-primary" @onclick="AddSimpleFactor">Add</button>
+
+        <div class="mb-3">
+            <label class="form-label fw-bold">Tipo di fattore</label>
+            <div class="btn-group w-100" role="group">
+                <button type="button" class="btn @(IsMealMode ? "btn-success" : "btn-outline-success")" @onclick="() => IsMealMode = true">
+                    🍽️ Pasto
+                </button>
+                <button type="button" class="btn @(!IsMealMode ? "btn-primary" : "btn-outline-primary")" @onclick="() => IsMealMode = false">
+                    ⚡ Fattore singolo
+                </button>
             </div>
         </div>
-    </div>
-</div>
 
-<div class="card mb-3">
-    <div class="card-body">
-        <h5 class="card-title">Add meal factor (composite)</h5>
-        <div class="row g-2">
-            <div class="col-md-3">
-                <InputSelect class="form-select" @bind-Value="NewMealType">
-                    <option>pranzo</option>
-                    <option>merenda</option>
-                    <option>cena</option>
-                    <option>other</option>
-                </InputSelect>
+        <div class="mb-3">
+            <label class="form-label fw-bold">Momento della giornata</label>
+            <div class="btn-group w-100" role="group">
+                <button type="button" class="btn @(NewTimeSlot == TimeSlot.Mattino ? "btn-info" : "btn-outline-info")" @onclick="() => NewTimeSlot = TimeSlot.Mattino">
+                    🌅 Mattino
+                </button>
+                <button type="button" class="btn @(NewTimeSlot == TimeSlot.Pomeriggio ? "btn-warning" : "btn-outline-warning")" @onclick="() => NewTimeSlot = TimeSlot.Pomeriggio">
+                    ☀️ Pomeriggio
+                </button>
+                <button type="button" class="btn @(NewTimeSlot == TimeSlot.Sera ? "btn-dark" : "btn-outline-dark")" @onclick="() => NewTimeSlot = TimeSlot.Sera">
+                    🌙 Sera
+                </button>
             </div>
-            <div class="col-md-5">
-                <InputText class="form-control" @bind-Value="NewMealIngredients" placeholder="Ingredients comma separated" />
-            </div>
-            <div class="col-md-2">
-                <InputText class="form-control" @bind-Value="NewMealDetail" placeholder="Detail" />
-            </div>
-            <div class="col-md-2 d-grid">
-                <button class="btn btn-primary" @onclick="AddMealFactor">Add meal</button>
-            </div>
+            <small class="text-muted">La sera ha peso maggiore nell'analisi (più vicina al sonno)</small>
         </div>
-    </div>
-</div>
 
-<div class="card mb-3">
-    <div class="card-body">
-        <h5 class="card-title">Current factors to save</h5>
-
-        @if (SimpleFactors.Count == 0 && MealFactors.Count == 0)
+        @if (IsMealMode)
         {
-            <p class="text-muted mb-0">No factors added yet.</p>
+            <div class="mb-3">
+                <label class="form-label fw-bold">Tipo di pasto</label>
+                <InputSelect class="form-select" @bind-Value="NewMealType">
+                    <option value="pranzo">🥗 Pranzo</option>
+                    <option value="merenda">🍎 Merenda</option>
+                    <option value="cena">🍽️ Cena</option>
+                    <option value="spuntino">🥐 Spuntino</option>
+                </InputSelect>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label fw-bold">Ingredienti</label>
+                @if (CurrentIngredients.Count > 0)
+                {
+                    <ul class="list-group list-group-flush mb-2">
+                        @foreach (var ing in CurrentIngredients.ToList())
+                        {
+                            <li class="list-group-item d-flex justify-content-between align-items-center py-1 px-2">
+                                <span>@ing</span>
+                                <button class="btn btn-sm btn-outline-danger" type="button" @onclick="() => CurrentIngredients.Remove(ing)">✕</button>
+                            </li>
+                        }
+                    </ul>
+                }
+                <div class="input-group">
+                    <input class="form-control" @bind="NewIngredient" @bind:event="oninput"
+                           @onkeydown="IngredientKeyDown" placeholder="Scrivi ingrediente e premi Aggiungi..." />
+                    <button class="btn btn-outline-secondary" type="button" @onclick="AddIngredient">+ Aggiungi</button>
+                </div>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">Note pasto (opzionale)</label>
+                <InputText class="form-control" @bind-Value="NewMealDetail" placeholder="Dettaglio opzionale..." />
+            </div>
         }
         else
         {
-            <ul class="mb-0">
-                @foreach (var factor in SimpleFactors)
+            <div class="mb-3">
+                <label class="form-label fw-bold">Categoria</label>
+                <InputSelect class="form-select" @bind-Value="NewSimpleCategory">
+                    <option value="@FactorCategory.Nap">😴 Sonnellino</option>
+                    <option value="@FactorCategory.Conflict">😤 Litigio / Conflitto</option>
+                    <option value="@FactorCategory.Bath">🛁 Bagnetto / Doccia</option>
+                    <option value="@FactorCategory.Incident">⚠️ Incidente / Caduta</option>
+                    <option value="@FactorCategory.Other">📌 Altro</option>
+                </InputSelect>
+            </div>
+
+            <div class="row g-2">
+                <div class="col-md-6">
+                    <label class="form-label fw-bold">Nome fattore</label>
+                    <InputText class="form-control" @bind-Value="NewSimpleName" placeholder="Es. sonnellino 2 ore, litigio genitori..." />
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Dettaglio (opzionale)</label>
+                    <InputText class="form-control" @bind-Value="NewSimpleDetail" placeholder="Dettaglio opzionale..." />
+                </div>
+            </div>
+        }
+
+        @if (!string.IsNullOrWhiteSpace(InputError))
+        {
+            <div class="alert alert-warning mt-2 mb-0">@InputError</div>
+        }
+
+        <button class="btn btn-primary mt-3 w-100" type="button" @onclick="AddFactor">
+            + Aggiungi alla lista
+        </button>
+    </div>
+</div>
+
+<div class="card mb-3">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <strong>Fattori inseriti</strong>
+        <span class="badge bg-secondary">@(SimpleFactors.Count + MealFactors.Count)</span>
+    </div>
+    <div class="card-body">
+        @if (SimpleFactors.Count == 0 && MealFactors.Count == 0)
+        {
+            <p class="text-muted mb-0">Nessun fattore aggiunto ancora.</p>
+        }
+        else
+        {
+            <ul class="list-group list-group-flush">
+                @for (var i = 0; i < SimpleFactors.Count; i++)
                 {
-                    <li>@factor.Category - @factor.Name (@factor.Detail)</li>
+                    var factor = SimpleFactors[i];
+                    var idx = i;
+                    <li class="list-group-item d-flex justify-content-between align-items-start">
+                        <div>
+                            <span class="badge @TimeSlotBadgeClass(factor.TimeSlot) me-1">@TimeSlotIcon(factor.TimeSlot) @TimeSlotLabel(factor.TimeSlot)</span>
+                            <span class="badge bg-secondary me-1">@CategoryLabel(factor.Category)</span>
+                            <strong>@factor.Name</strong>
+                            @if (!string.IsNullOrWhiteSpace(factor.Detail))
+                            {
+                                <span class="text-muted ms-1">— @factor.Detail</span>
+                            }
+                        </div>
+                        <button class="btn btn-sm btn-outline-danger" type="button" @onclick="() => SimpleFactors.RemoveAt(idx)">✕</button>
+                    </li>
                 }
-                @foreach (var meal in MealFactors)
+                @for (var i = 0; i < MealFactors.Count; i++)
                 {
-                    <li>meal:@meal.MealType - [@string.Join(", ", meal.Ingredients)]</li>
+                    var meal = MealFactors[i];
+                    var idx = i;
+                    <li class="list-group-item">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <span class="badge @TimeSlotBadgeClass(meal.TimeSlot) me-1">@TimeSlotIcon(meal.TimeSlot) @TimeSlotLabel(meal.TimeSlot)</span>
+                                <span class="badge bg-success me-1">Pasto</span>
+                                <strong>@meal.MealType</strong>
+                                @if (!string.IsNullOrWhiteSpace(meal.Detail))
+                                {
+                                    <span class="text-muted ms-1">— @meal.Detail</span>
+                                }
+                            </div>
+                            <button class="btn btn-sm btn-outline-danger" type="button" @onclick="() => MealFactors.RemoveAt(idx)">✕</button>
+                        </div>
+                        @if (meal.Ingredients.Count > 0)
+                        {
+                            <ul class="mb-0 mt-1 ps-3">
+                                @foreach (var ing in meal.Ingredients)
+                                {
+                                    <li>@ing</li>
+                                }
+                            </ul>
+                        }
+                    </li>
                 }
             </ul>
         }
     </div>
 </div>
 
-<button class="btn btn-success" @onclick="SaveDay">Save day</button>
-
 @if (!string.IsNullOrWhiteSpace(StatusMessage))
 {
-    <div class="alert alert-info mt-3">@StatusMessage</div>
+    <div class="alert alert-success mt-2">@StatusMessage</div>
 }
+
+<button class="btn btn-success btn-lg w-100 mb-4" type="button" @onclick="SaveDay">
+    💾 Salva giornata
+</button>
 
 @code {
     private DateOnly SelectedDay { get; set; } = DateOnly.FromDateTime(DateTime.Today);
     private SleepQuality SelectedSleepQuality { get; set; } = SleepQuality.SoSo;
     private string? DailyNotes { get; set; }
 
-    private FactorCategory NewSimpleCategory { get; set; } = FactorCategory.Nap;
+    private bool IsMealMode { get; set; }
+    private TimeSlot NewTimeSlot { get; set; } = TimeSlot.Pomeriggio;
+
+    // Fattore singolo
+    private FactorCategory NewSimpleCategory { get; set; } = FactorCategory.Other;
     private string? NewSimpleName { get; set; }
     private string? NewSimpleDetail { get; set; }
 
+    // Pasto
     private string NewMealType { get; set; } = "pranzo";
-    private string? NewMealIngredients { get; set; }
     private string? NewMealDetail { get; set; }
+    private List<string> CurrentIngredients { get; } = [];
+    private string? NewIngredient { get; set; }
 
     private string? StatusMessage { get; set; }
+    private string? InputError { get; set; }
 
     private List<SimpleFactorInput> SimpleFactors { get; } = [];
     private List<MealFactorInput> MealFactors { get; } = [];
 
-    private static IReadOnlyList<FactorCategory> SelectableSimpleCategories { get; } =
-    [
-        FactorCategory.Nap,
-        FactorCategory.Conflict,
-        FactorCategory.Bath,
-        FactorCategory.Incident,
-        FactorCategory.Other
-    ];
-
-    private void AddSimpleFactor()
+    private static string CategoryLabel(FactorCategory c) => c switch
     {
-        if (string.IsNullOrWhiteSpace(NewSimpleName))
-        {
-            StatusMessage = "Factor name is required.";
-            return;
-        }
+        FactorCategory.Nap => "Sonnellino",
+        FactorCategory.Conflict => "Litigio",
+        FactorCategory.Bath => "Bagnetto",
+        FactorCategory.Incident => "Incidente",
+        _ => "Altro"
+    };
 
-        SimpleFactors.Add(new SimpleFactorInput(NewSimpleCategory, NewSimpleName, NewSimpleDetail));
-        NewSimpleName = null;
-        NewSimpleDetail = null;
-        StatusMessage = "Single factor added.";
+    private static string TimeSlotLabel(TimeSlot t) => t switch
+    {
+        TimeSlot.Mattino => "Mattino",
+        TimeSlot.Pomeriggio => "Pomeriggio",
+        _ => "Sera"
+    };
+
+    private static string TimeSlotIcon(TimeSlot t) => t switch
+    {
+        TimeSlot.Mattino => "🌅",
+        TimeSlot.Pomeriggio => "☀️",
+        _ => "🌙"
+    };
+
+    private static string TimeSlotBadgeClass(TimeSlot t) => t switch
+    {
+        TimeSlot.Mattino => "bg-info text-dark",
+        TimeSlot.Pomeriggio => "bg-warning text-dark",
+        _ => "bg-dark"
+    };
+
+    private void AddIngredient()
+    {
+        var trimmed = (NewIngredient ?? string.Empty).Trim();
+        if (string.IsNullOrWhiteSpace(trimmed)) return;
+        if (!CurrentIngredients.Contains(trimmed, StringComparer.OrdinalIgnoreCase))
+            CurrentIngredients.Add(trimmed);
+        NewIngredient = null;
+        InputError = null;
     }
 
-    private void AddMealFactor()
+    private void IngredientKeyDown(KeyboardEventArgs e)
     {
-        var ingredients = (NewMealIngredients ?? string.Empty)
-            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToList();
+        if (e.Key == "Enter") AddIngredient();
+    }
 
-        if (ingredients.Count == 0)
+    private void AddFactor()
+    {
+        InputError = null;
+        StatusMessage = null;
+
+        if (IsMealMode)
         {
-            StatusMessage = "Add at least one ingredient for a meal factor.";
-            return;
+            if (CurrentIngredients.Count == 0)
+            {
+                InputError = "Aggiungi almeno un ingrediente al pasto.";
+                return;
+            }
+            MealFactors.Add(new MealFactorInput(NewMealType, CurrentIngredients.ToList(), NewMealDetail, NewTimeSlot));
+            CurrentIngredients.Clear();
+            NewMealDetail = null;
+            StatusMessage = "Pasto aggiunto alla lista.";
         }
-
-        MealFactors.Add(new MealFactorInput(NewMealType, ingredients, NewMealDetail));
-        NewMealIngredients = null;
-        NewMealDetail = null;
-        StatusMessage = "Meal factor added.";
+        else
+        {
+            if (string.IsNullOrWhiteSpace(NewSimpleName))
+            {
+                InputError = "Il nome del fattore è obbligatorio.";
+                return;
+            }
+            SimpleFactors.Add(new SimpleFactorInput(NewSimpleCategory, NewSimpleName.Trim(), NewSimpleDetail, NewTimeSlot));
+            NewSimpleName = null;
+            NewSimpleDetail = null;
+            StatusMessage = "Fattore aggiunto alla lista.";
+        }
     }
 
     private async Task SaveDay()
     {
+        StatusMessage = null;
         if (SimpleFactors.Count == 0 && MealFactors.Count == 0)
         {
-            StatusMessage = "Add at least one factor before saving.";
+            StatusMessage = "Aggiungi almeno un fattore prima di salvare.";
             return;
         }
 
-        var input = new DailyLogInput(
-            SelectedDay,
-            SelectedSleepQuality,
-            DailyNotes,
-            SimpleFactors.ToList(),
-            MealFactors.ToList());
-
-        await DailyLogService.AddDailyLogAsync(input);
+        await DailyLogService.AddDailyLogAsync(new DailyLogInput(
+            SelectedDay, SelectedSleepQuality, DailyNotes,
+            SimpleFactors.ToList(), MealFactors.ToList()));
 
         SimpleFactors.Clear();
         MealFactors.Clear();
         DailyNotes = null;
-
-        StatusMessage = "Day saved in SQLite.";
+        StatusMessage = "✅ Giornata salvata nel database.";
     }
 }

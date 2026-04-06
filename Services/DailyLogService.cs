@@ -23,7 +23,8 @@ public sealed class DailyLogService(SleepFactorsDbContext dbContext, IHubContext
             {
                 Name = factor.Name.Trim(),
                 Detail = string.IsNullOrWhiteSpace(factor.Detail) ? null : factor.Detail.Trim(),
-                Category = factor.Category
+                Category = factor.Category,
+                TimeSlot = factor.TimeSlot
             });
         }
 
@@ -34,7 +35,8 @@ public sealed class DailyLogService(SleepFactorsDbContext dbContext, IHubContext
                 Name = meal.MealType.Trim().ToLowerInvariant(),
                 MealType = meal.MealType.Trim().ToLowerInvariant(),
                 Detail = string.IsNullOrWhiteSpace(meal.Detail) ? null : meal.Detail.Trim(),
-                Category = FactorCategory.Meal
+                Category = FactorCategory.Meal,
+                TimeSlot = meal.TimeSlot
             };
 
             foreach (var ingredient in meal.Ingredients.Where(value => !string.IsNullOrWhiteSpace(value)))
@@ -42,7 +44,8 @@ public sealed class DailyLogService(SleepFactorsDbContext dbContext, IHubContext
                 mealFactor.Children.Add(new SimpleFactor
                 {
                     Name = ingredient.Trim().ToLowerInvariant(),
-                    Category = FactorCategory.Ingredient
+                    Category = FactorCategory.Ingredient,
+                    TimeSlot = meal.TimeSlot  // gli ingredienti ereditano il time slot del pasto
                 });
             }
 
