@@ -10,7 +10,7 @@
 <div class="row g-3 mb-2">
     <div class="col-md-4">
         <label class="form-label fw-bold">Giorno dei fattori (pre-salvataggio)</label>
-        <InputDate class="form-control" Value="SelectedDay" ValueChanged="OnDayChanged" ValueExpression="() => SelectedDay" />
+        <InputDate class="form-control" @bind-Value="SelectedDay" @bind-Value:after="LoadDayCollectorStatusAsync" />
     </div>
     <div class="col-md-8">
         <label class="form-label fw-bold">Note fattori</label>

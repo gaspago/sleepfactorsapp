@@ -8,6 +8,7 @@ obj/
 App_Data/sleepfactors.db
 App_Data/sleepfactors.db-shm
 App_Data/sleepfactors.db-wal
+App_Data/keys/
 .DS_Store
 .idea/
 dist/
