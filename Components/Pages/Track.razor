@@ -7,16 +7,21 @@
 
 <h1>Aggiungi Fattori Giornalieri</h1>
 
-<div class="row g-3 mb-4">
+<div class="row g-3 mb-2">
     <div class="col-md-4">
         <label class="form-label fw-bold">Giorno dei fattori (pre-salvataggio)</label>
-        <InputDate class="form-control" @bind-Value="SelectedDay" />
+        <InputDate class="form-control" Value="SelectedDay" ValueChanged="OnDayChanged" ValueExpression="() => SelectedDay" />
     </div>
     <div class="col-md-8">
         <label class="form-label fw-bold">Note fattori</label>
         <InputText class="form-control" @bind-Value="DailyNotes" placeholder="Note opzionali sui fattori della giornata..." />
     </div>
 </div>
+
+@if (!string.IsNullOrWhiteSpace(DayCollectorStatusMessage))
+{
+    <div class="alert @DayCollectorStatusClass mb-4">@DayCollectorStatusMessage</div>
+}
 
 <div class="card mb-3">
     <div class="card-header fw-bold">Aggiungi fattore</div>
@@ -269,6 +274,8 @@
     private IReadOnlyList<DateOnly> PendingDraftDays { get; set; } = [];
     private string? CommitDayIso { get; set; }
     private string? CommitNotes { get; set; }
+    private string? DayCollectorStatusMessage { get; set; }
+    private string DayCollectorStatusClass { get; set; } = "alert-light";
 
     protected override async Task OnInitializedAsync()
     {
@@ -281,6 +288,34 @@
         HistoricalIngredients = await DailyLogService.GetHistoricalIngredientsAsync();
         HistoricalSimpleFactorNames = await DailyLogService.GetHistoricalSimpleFactorNamesAsync();
         PendingDraftDays = await DailyLogService.GetPendingDraftDaysAsync();
+        await LoadDayCollectorStatusAsync();
+    }
+
+    private async Task OnDayChanged(DateOnly day)
+    {
+        SelectedDay = day;
+        await LoadDayCollectorStatusAsync();
+    }
+
+    private async Task LoadDayCollectorStatusAsync()
+    {
+        var status = await DailyLogService.GetDayCollectorStatusAsync(SelectedDay);
+        if (status.LogsCount == 0)
+        {
+            DayCollectorStatusClass = "alert-light";
+            DayCollectorStatusMessage = $"{SelectedDay:dd/MM/yyyy}: nessun salvataggio ancora.";
+            return;
+        }
+
+        if (status.HasDraft)
+        {
+            DayCollectorStatusClass = "alert-warning";
+            DayCollectorStatusMessage = $"{SelectedDay:dd/MM/yyyy}: pre-salvataggio presente con {status.TotalFactors} fattori. Se salvi ancora, i nuovi fattori si aggiungono.";
+            return;
+        }
+
+        DayCollectorStatusClass = "alert-success";
+        DayCollectorStatusMessage = $"{SelectedDay:dd/MM/yyyy}: giornata già salvata/committata con {status.TotalFactors} fattori. Se salvi ancora, i nuovi fattori si aggiungono.";
     }
 
     // Fattore singolo
@@ -396,7 +431,7 @@
         DailyNotes = null;
         await RefreshReferenceDataAsync();
 
-        StatusMessage = "✅ Fattori pre-salvati. Domani puoi fare il commit del sonno.";
+        StatusMessage = "✅ Fattori aggiunti alla data selezionata. Puoi fare altri salvataggi sulla stessa giornata.";
     }
 
     private async Task CommitSleep()

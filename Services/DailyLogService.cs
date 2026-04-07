@@ -27,29 +27,30 @@ public sealed class DailyLogService(SleepFactorsDbContext dbContext, IHubContext
 
     public async Task SaveDraftAsync(DailyDraftInput input, CancellationToken cancellationToken = default)
     {
-        var draft = await dbContext.DailyLogs
+        var collector = await dbContext.DailyLogs
             .Include(log => log.Factors)
                 .ThenInclude(factor => factor.Children)
-            .FirstOrDefaultAsync(log => log.Day == input.Day && !log.IsCommitted, cancellationToken);
+            .Where(log => log.Day == input.Day)
+            .OrderBy(log => log.IsCommitted)
+            .FirstOrDefaultAsync(cancellationToken);
 
-        if (draft is null)
+        if (collector is null)
         {
-            draft = new DailyLog
+            collector = new DailyLog
             {
                 Day = input.Day,
                 SleepQuality = SleepQuality.SoSo,
                 IsCommitted = false,
                 Notes = string.IsNullOrWhiteSpace(input.Notes) ? null : input.Notes.Trim()
             };
-            dbContext.DailyLogs.Add(draft);
+            dbContext.DailyLogs.Add(collector);
         }
-        else
+        else if (!string.IsNullOrWhiteSpace(input.Notes))
         {
-            draft.Factors.Clear();
-            draft.Notes = string.IsNullOrWhiteSpace(input.Notes) ? null : input.Notes.Trim();
+            collector.Notes = MergeNotes(collector.Notes, input.Notes);
         }
 
-        AddFactors(draft, input.SimpleFactors, input.MealFactors);
+        AddFactors(collector, input.SimpleFactors, input.MealFactors);
 
         await dbContext.SaveChangesAsync(cancellationToken);
         await hubContext.Clients.All.SendAsync("DailyLogSaved", cancellationToken);
@@ -57,20 +58,22 @@ public sealed class DailyLogService(SleepFactorsDbContext dbContext, IHubContext
 
     public async Task CommitSleepAsync(CommitSleepInput input, CancellationToken cancellationToken = default)
     {
-        var draft = await dbContext.DailyLogs
-            .FirstOrDefaultAsync(log => log.Day == input.Day && !log.IsCommitted, cancellationToken);
+        var collector = await dbContext.DailyLogs
+            .Where(log => log.Day == input.Day)
+            .OrderBy(log => log.IsCommitted)
+            .FirstOrDefaultAsync(cancellationToken);
 
-        if (draft is null)
+        if (collector is null)
         {
             throw new InvalidOperationException("Nessun pre-salvataggio trovato per il giorno selezionato.");
         }
 
-        draft.SleepQuality = input.SleepQuality;
-        draft.IsCommitted = true;
+        collector.SleepQuality = input.SleepQuality;
+        collector.IsCommitted = true;
 
         if (!string.IsNullOrWhiteSpace(input.Notes))
         {
-            draft.Notes = input.Notes.Trim();
+            collector.Notes = MergeNotes(collector.Notes, input.Notes);
         }
 
         await dbContext.SaveChangesAsync(cancellationToken);
@@ -84,7 +87,33 @@ public sealed class DailyLogService(SleepFactorsDbContext dbContext, IHubContext
             .Where(log => !log.IsCommitted)
             .OrderBy(log => log.Day)
             .Select(log => log.Day)
+            .Distinct()
             .ToListAsync(cancellationToken);
+    }
+
+    public async Task<DayCollectorStatus> GetDayCollectorStatusAsync(DateOnly day, CancellationToken cancellationToken = default)
+    {
+        var rows = await dbContext.DailyLogs
+            .AsNoTracking()
+            .Where(log => log.Day == day)
+            .Select(log => new
+            {
+                log.IsCommitted,
+                FactorCount = log.Factors.Count
+            })
+            .ToListAsync(cancellationToken);
+
+        if (rows.Count == 0)
+        {
+            return new DayCollectorStatus(day, 0, 0, false, false);
+        }
+
+        return new DayCollectorStatus(
+            day,
+            rows.Count,
+            rows.Sum(row => row.FactorCount),
+            rows.Any(row => !row.IsCommitted),
+            rows.Any(row => row.IsCommitted));
     }
 
     public async Task<IReadOnlyList<DailyLog>> GetAllLogsAsync(CancellationToken cancellationToken = default)
@@ -137,6 +166,22 @@ public sealed class DailyLogService(SleepFactorsDbContext dbContext, IHubContext
             .Distinct()
             .OrderBy(x => x)
             .ToListAsync(cancellationToken);
+    }
+
+    private static string? MergeNotes(string? existing, string? incoming)
+    {
+        var incomingTrimmed = string.IsNullOrWhiteSpace(incoming) ? null : incoming.Trim();
+        if (incomingTrimmed is null)
+        {
+            return existing;
+        }
+
+        if (string.IsNullOrWhiteSpace(existing))
+        {
+            return incomingTrimmed;
+        }
+
+        return $"{existing} | {incomingTrimmed}";
     }
 
     private static void AddFactors(DailyLog dailyLog, IReadOnlyList<SimpleFactorInput> simpleFactors, IReadOnlyList<MealFactorInput> mealFactors)

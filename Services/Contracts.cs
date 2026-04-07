@@ -24,6 +24,13 @@ public sealed record CommitSleepInput(
     SleepQuality SleepQuality,
     string? Notes);
 
+public sealed record DayCollectorStatus(
+    DateOnly Day,
+    int LogsCount,
+    int TotalFactors,
+    bool HasDraft,
+    bool HasCommitted);
+
 public sealed record AnalysisItem(string Key, int Occurrences, int BadCount, int SoSoCount, int GoodCount, double RiskScore);
 
 public sealed record AnalysisReport(
